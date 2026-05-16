@@ -1,8 +1,11 @@
-// Web stub for the identity service. The native (iOS/Android) implementation in
-// identity.ts depends on @react-native-firebase, which has no web support. On
-// web we return a deterministic local-only identity so the app shell renders
-// and the debug page is usable, but no real auth or firestore writes happen.
+// Web identity service backed by Firebase Anonymous Auth + Firestore.
+// Mirrors the native @react-native-firebase implementation in identity.ts so
+// notes posted from web are first-class users in the same project.
 
+import { signInAnonymously } from 'firebase/auth';
+import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+
+import { webAuth, webDb } from './firebase.web';
 import { generateHandle } from './handle-generator';
 
 export type Identity = {
@@ -11,53 +14,56 @@ export type Identity = {
   isFresh: boolean;
 };
 
-const HANDLE_KEY = 'suitetalk.web.handle.v1';
-const UID_KEY = 'suitetalk.web.uid.v1';
 const ONBOARDED_KEY = 'suitetalk.web.onboarded.v1';
 
-function readLocal(key: string): string | null {
+function isOnboarded(): boolean {
   try {
-    return globalThis.localStorage?.getItem(key) ?? null;
+    return globalThis.localStorage?.getItem(ONBOARDED_KEY) === '1';
   } catch {
-    return null;
+    return false;
   }
 }
 
-function writeLocal(key: string, value: string): void {
+function markOnboarded(): void {
   try {
-    globalThis.localStorage?.setItem(key, value);
+    globalThis.localStorage?.setItem(ONBOARDED_KEY, '1');
   } catch {
-    // ignore (SSR / private mode)
+    // ignore
   }
 }
+
+let inflight: Promise<Identity> | null = null;
 
 async function resolveIdentity(): Promise<Identity> {
-  let uid = readLocal(UID_KEY);
-  if (!uid) {
-    uid = `web-${Math.random().toString(36).slice(2, 10)}`;
-    writeLocal(UID_KEY, uid);
+  const cred = await signInAnonymously(webAuth);
+  const uid = cred.user.uid;
+
+  const userRef = doc(webDb, 'users', uid);
+  const snap = await getDoc(userRef);
+
+  if (snap.exists()) {
+    const handle = (snap.data().handle as string) ?? generateHandle();
+    return { uid, handle, isFresh: !isOnboarded() };
   }
-  let handle = readLocal(HANDLE_KEY);
-  if (!handle) {
-    handle = generateHandle();
-    writeLocal(HANDLE_KEY, handle);
-  }
-  const isFresh = readLocal(ONBOARDED_KEY) !== '1';
-  return { uid, handle, isFresh };
+
+  const handle = generateHandle();
+  await setDoc(userRef, { handle, createdAt: serverTimestamp() });
+  return { uid, handle, isFresh: !isOnboarded() };
 }
 
-// Re-read on every call so renames + onboarding-completion are observable to
-// later useIdentity() consumers. Memoizing would mask state changes across
-// hook instances.
 export function getIdentity(): Promise<Identity> {
-  return resolveIdentity();
+  if (!inflight) inflight = resolveIdentity();
+  return inflight;
 }
 
-export async function renameHandle(_uid: string, handle: string): Promise<void> {
+export async function renameHandle(uid: string, handle: string): Promise<void> {
   const trimmed = handle.trim().toLowerCase();
   if (!/^[a-z0-9-]{2,32}$/.test(trimmed)) {
     throw new Error('Handle must be 2–32 lowercase letters, digits, or hyphens.');
   }
-  writeLocal(HANDLE_KEY, trimmed);
-  writeLocal(ONBOARDED_KEY, '1');
+  await updateDoc(doc(webDb, 'users', uid), { handle: trimmed });
+  markOnboarded();
+  // Invalidate the cached identity so the next getIdentity() picks up the
+  // new handle and isFresh = false.
+  inflight = null;
 }

@@ -1,7 +1,19 @@
-// Web stub for the notes service. The native implementation in notes.ts uses
-// @react-native-firebase/firestore which has no web support. On web we keep
-// notes in-memory and broadcast via a window-level EventTarget so the feed
-// still works for local UI testing (the data doesn't leave the tab).
+// Web notes service backed by Firestore. Mirrors the API of the native
+// notes.ts so the rest of the app code is identical across targets.
+
+import {
+  Timestamp,
+  addDoc,
+  collection,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  type QueryDocumentSnapshot,
+} from 'firebase/firestore';
+
+import { webDb } from './firebase.web';
 
 export type Note = {
   id: string;
@@ -11,23 +23,37 @@ export type Note = {
   createdAt: Date | null;
 };
 
-const store: Note[] = [];
-const listeners = new Set<(notes: Note[]) => void>();
+const NOTES_LIMIT = 100;
 
-function notify(): void {
-  for (const fn of listeners) fn([...store]);
+function notesQuery() {
+  return query(
+    collection(webDb, 'notes'),
+    orderBy('createdAt', 'desc'),
+    limit(NOTES_LIMIT),
+  );
+}
+
+function toNote(snap: QueryDocumentSnapshot): Note {
+  const data = snap.data();
+  const ts = data.createdAt as Timestamp | null;
+  return {
+    id: snap.id,
+    authorUid: data.authorUid ?? '',
+    authorHandle: data.authorHandle ?? '',
+    text: data.text ?? '',
+    createdAt: ts ? ts.toDate() : null,
+  };
 }
 
 export function subscribeToNotes(
   onChange: (notes: Note[]) => void,
-  _onError?: (err: Error) => void,
+  onError?: (err: Error) => void,
 ): () => void {
-  listeners.add(onChange);
-  // initial snapshot
-  onChange([...store]);
-  return () => {
-    listeners.delete(onChange);
-  };
+  return onSnapshot(
+    notesQuery(),
+    (qs) => onChange(qs.docs.map(toNote)),
+    (err) => onError?.(err),
+  );
 }
 
 export async function postNote(input: {
@@ -37,15 +63,11 @@ export async function postNote(input: {
 }): Promise<string> {
   const trimmed = input.text.trim();
   if (!trimmed) throw new Error('Note text cannot be empty.');
-  const id = `web-${Math.random().toString(36).slice(2, 10)}`;
-  const note: Note = {
-    id,
+  const ref = await addDoc(collection(webDb, 'notes'), {
+    text: trimmed,
     authorUid: input.authorUid,
     authorHandle: input.authorHandle,
-    text: trimmed,
-    createdAt: new Date(),
-  };
-  store.unshift(note);
-  notify();
-  return id;
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
 }
