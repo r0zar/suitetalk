@@ -10,6 +10,7 @@ export type ClientMessage =
 export type ServerMessage =
   | { type: 'ready' }
   | { type: 'ack'; forSeq: number }
+  | { type: 'transcript'; kind: 'partial' | 'committed'; text: string }
   | { type: 'bye'; reason: string };
 
 export type VoiceSession = {
