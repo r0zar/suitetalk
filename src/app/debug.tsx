@@ -1,5 +1,4 @@
 import { useRouter } from 'expo-router';
-import { fetch as expoFetch } from 'expo/fetch';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,7 +7,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { generateAPIUrl } from '@/utils';
+import { getIdentity } from '@/lib/identity';
+import { postNote } from '@/lib/notes';
 
 type DebugAction = {
   label: string;
@@ -17,33 +17,12 @@ type DebugAction = {
 
 const ACTIONS: DebugAction[] = [
   {
-    label: 'Ping /api/chat',
+    label: 'Post test note',
     run: async () => {
-      const url = generateAPIUrl('/api/chat');
-      const started = Date.now();
-      const res = await expoFetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [
-            {
-              id: 'debug-1',
-              role: 'user',
-              parts: [{ type: 'text', text: 'Say "pong" and nothing else.' }],
-            },
-          ],
-        }),
-      });
-
-      const body = await res.text();
-      return {
-        url,
-        status: res.status,
-        ok: res.ok,
-        durationMs: Date.now() - started,
-        headers: Object.fromEntries(res.headers as unknown as Iterable<[string, string]>),
-        body,
-      };
+      const { uid, handle } = await getIdentity();
+      const text = `test note ${new Date().toLocaleTimeString()}`;
+      const id = await postNote({ text, authorUid: uid, authorHandle: handle });
+      return { ok: true, noteId: id, text, authorHandle: handle };
     },
   },
 ];
