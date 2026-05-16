@@ -2,13 +2,14 @@ import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { fetch as expoFetch } from 'expo/fetch';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DebugFab } from '@/components/debug-fab';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useIdentity } from '@/hooks/use-identity';
 import { useTheme } from '@/hooks/use-theme';
 import { generateAPIUrl } from '@/utils';
 
@@ -16,6 +17,9 @@ export default function ChatScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [input, setInput] = useState('');
+
+  const { state: idState } = useIdentity();
+  const handle = idState.status === 'ready' ? idState.identity.handle : '...';
 
   const { messages, error, sendMessage } = useChat({
     transport: new DefaultChatTransport({
@@ -36,6 +40,10 @@ export default function ChatScreen() {
             styles.container,
             { paddingTop: insets.top + Spacing.three, paddingBottom: insets.bottom + Spacing.three },
           ]}>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: Spacing.two }}>
+            <ThemedText type="smallBold" themeColor="textSecondary">YOU ARE</ThemedText>
+            <ThemedText type="smallBold">{handle}</ThemedText>
+          </View>
           {error ? (
             <ThemedText themeColor="textSecondary">{error.message}</ThemedText>
           ) : null}
