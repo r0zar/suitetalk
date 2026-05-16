@@ -38,6 +38,27 @@ export function openVoiceSession(opts: Options): VoiceSession {
   let seq = 0;
   let handler: ((msg: ServerMessage) => void) | null = null;
 
+  // Anything queued before the socket opens (audio frames arriving from a
+  // mic that started capturing while we were still in CONNECTING) gets
+  // flushed in order on open. Without this, the AudioWorklet's first frames
+  // throw "Still in CONNECTING state".
+  const pending: string[] = [];
+
+  function flushPending(): void {
+    for (const msg of pending) ws.send(msg);
+    pending.length = 0;
+  }
+
+  function safeSend(msg: ClientMessage): void {
+    const payload = JSON.stringify(msg);
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(payload);
+    } else if (ws.readyState === WebSocket.CONNECTING) {
+      pending.push(payload);
+    }
+    // CLOSING / CLOSED — drop silently. The caller has no useful action.
+  }
+
   ws.onopen = () => {
     ws.send(
       JSON.stringify({
@@ -46,6 +67,7 @@ export function openVoiceSession(opts: Options): VoiceSession {
         handle: opts.handle,
       } satisfies ClientMessage),
     );
+    flushPending();
     opts.onOpen?.();
   };
   ws.onmessage = (ev) => {
@@ -63,12 +85,10 @@ export function openVoiceSession(opts: Options): VoiceSession {
     url,
     sendChunk(bytes) {
       seq += 1;
-      const msg: ClientMessage = { type: 'audio.chunk', seq, bytes };
-      ws.send(JSON.stringify(msg));
+      safeSend({ type: 'audio.chunk', seq, bytes });
     },
     end() {
-      const msg: ClientMessage = { type: 'audio.end' };
-      ws.send(JSON.stringify(msg));
+      safeSend({ type: 'audio.end' });
     },
     close() {
       ws.close();
