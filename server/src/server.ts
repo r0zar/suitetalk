@@ -86,6 +86,10 @@ wss.on('connection', (ws, req) => {
         break;
       case 'audio.end':
         sessionLog.info({ handle: clientHandle }, 'audio end');
+        // Tell ElevenLabs the client is done speaking. The upstream will emit
+        // the final committed_transcript shortly; we keep the WS open long
+        // enough for that to flow back to the client.
+        upstream?.flush();
         break;
       default:
         sessionLog.warn({ msg }, 'unknown message type');

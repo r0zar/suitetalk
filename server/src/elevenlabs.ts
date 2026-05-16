@@ -36,6 +36,7 @@ export type UpstreamEvent =
 
 export type UpstreamSession = {
   sendChunk(base64Audio: string): void;
+  flush(): void;
   close(): void;
 };
 
@@ -95,6 +96,20 @@ export function openUpstream(opts: {
           message_type: 'input_audio_chunk',
           audio_base_64: base64Audio,
           commit: false,
+          sample_rate: 16000,
+        }),
+      );
+    },
+    flush() {
+      if (ws.readyState !== ws.OPEN) return;
+      // Send an empty chunk with commit:true to force the model to finalize
+      // whatever it has so far. Useful when the client knows it's done
+      // speaking and doesn't want to wait for the VAD silence threshold.
+      ws.send(
+        JSON.stringify({
+          message_type: 'input_audio_chunk',
+          audio_base_64: '',
+          commit: true,
           sample_rate: 16000,
         }),
       );

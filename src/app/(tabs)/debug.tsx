@@ -67,11 +67,11 @@ async function captureMicAndStream(
   source.disconnect();
   stream.getTracks().forEach((t) => t.stop());
   await ctx.close();
-  session.end();
-  // Give ElevenLabs a moment to emit the final committed transcript before
-  // we close the WS — 1500ms is more than the VAD threshold, so any
-  // remaining audio will commit.
-  await new Promise<void>((resolve) => setTimeout(resolve, 1500));
+  session.end(); // server forwards as `commit: true` to ElevenLabs
+  // Give the server + ElevenLabs time to emit the final committed transcript
+  // after the flush. 3s is comfortable; cold-started upstream connections
+  // can take a couple seconds.
+  await new Promise<void>((resolve) => setTimeout(resolve, 3000));
   session.close();
 }
 
