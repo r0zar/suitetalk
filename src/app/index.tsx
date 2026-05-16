@@ -1,5 +1,5 @@
 import { Redirect } from 'expo-router';
-import { ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DebugFab } from '@/components/debug-fab';
@@ -60,9 +60,16 @@ export default function FeedScreen() {
                 key={n.id}
                 type="backgroundElement"
                 style={styles.messageBubble}>
-                <ThemedText type="smallBold" themeColor="textSecondary">
-                  {n.authorHandle || 'unknown'}
-                </ThemedText>
+                <View style={styles.bubbleMeta}>
+                  <ThemedText type="smallBold" themeColor="textSecondary">
+                    {n.authorHandle || 'unknown'}
+                  </ThemedText>
+                  {n.createdAt ? (
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {formatTime(n.createdAt)}
+                    </ThemedText>
+                  ) : null}
+                </View>
                 <ThemedText>{n.text}</ThemedText>
               </ThemedView>
             ))
@@ -106,4 +113,14 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     borderRadius: Spacing.three,
   },
+  bubbleMeta: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
 });
+
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}

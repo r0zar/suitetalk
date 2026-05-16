@@ -20,7 +20,7 @@ const ACTIONS: DebugAction[] = [
     label: 'Post test note',
     run: async () => {
       const { uid, handle } = await getIdentity();
-      const text = `test note ${new Date().toLocaleTimeString()}`;
+      const text = `test note ${Math.random().toString(36).slice(2, 6)}`;
       const id = await postNote({ text, authorUid: uid, authorHandle: handle });
       return { ok: true, noteId: id, text, authorHandle: handle };
     },
