@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -35,6 +35,8 @@ type RunState =
 export default function DebugScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const isNarrow = width < 768;
   const [state, setState] = useState<RunState>({ status: 'idle' });
 
   const runAction = async (action: DebugAction) => {
@@ -69,8 +71,10 @@ export default function DebugScreen() {
           <ThemedText type="subtitle">Debug</ThemedText>
         </View>
 
-        <View style={styles.panels}>
-          <ThemedView type="backgroundElement" style={styles.leftPanel}>
+        <View style={[styles.panels, isNarrow && styles.panelsStacked]}>
+          <ThemedView
+            type="backgroundElement"
+            style={[styles.actionsPanel, isNarrow && styles.actionsPanelNarrow]}>
             <ThemedText type="smallBold" themeColor="textSecondary" style={styles.panelLabel}>
               ACTIONS
             </ThemedText>
@@ -94,7 +98,7 @@ export default function DebugScreen() {
             </ScrollView>
           </ThemedView>
 
-          <ThemedView type="backgroundElement" style={styles.rightPanel}>
+          <ThemedView type="backgroundElement" style={styles.outputPanel}>
             <View style={styles.panelHeader}>
               <ThemedText type="smallBold" themeColor="textSecondary" style={styles.panelLabel}>
                 OUTPUT
@@ -163,13 +167,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: Spacing.three,
   },
-  leftPanel: {
+  panelsStacked: {
+    flexDirection: 'column',
+  },
+  actionsPanel: {
     width: 240,
     borderRadius: Spacing.three,
     padding: Spacing.three,
     gap: Spacing.two,
   },
-  rightPanel: {
+  actionsPanelNarrow: {
+    width: '100%',
+    maxHeight: 200,
+  },
+  outputPanel: {
     flex: 1,
     borderRadius: Spacing.three,
     padding: Spacing.three,
