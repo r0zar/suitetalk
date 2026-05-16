@@ -27,7 +27,12 @@ async function writeCache(id: Identity): Promise<void> {
   await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(id));
 }
 
-export async function getIdentity(): Promise<Identity> {
+// Concurrent callers (e.g. two components rendering useIdentity at once on
+// first launch) must share a single in-flight resolution, or they'd race to
+// signInAnonymously + setDoc and produce duplicate users/{uid} docs.
+let inflight: Promise<Identity> | null = null;
+
+async function resolveIdentity(): Promise<Identity> {
   const cached = await readCache();
 
   const cred = await signInAnonymously(auth);
@@ -52,6 +57,11 @@ export async function getIdentity(): Promise<Identity> {
   const id: Identity = { uid, handle, isFresh: true };
   await writeCache(id);
   return id;
+}
+
+export function getIdentity(): Promise<Identity> {
+  if (!inflight) inflight = resolveIdentity();
+  return inflight;
 }
 
 export async function renameHandle(uid: string, handle: string): Promise<void> {

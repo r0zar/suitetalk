@@ -1,7 +1,9 @@
-import '@react-native-async-storage/async-storage';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { initializeAuth } from 'firebase/auth';
+// @ts-expect-error - getReactNativePersistence is exported from firebase/auth in
+// React Native environments only; TS types don't reflect the conditional export.
+import { getReactNativePersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const config = {
@@ -19,12 +21,11 @@ for (const [k, v] of Object.entries(config)) {
 
 export const app = getApps().length ? getApp() : initializeApp(config);
 
-// Firebase JS SDK v12+ auto-detects AsyncStorage in React Native and uses it for
-// auth persistence. The side-effect import above ensures AsyncStorage is loaded
-// before initializeAuth runs.
-//
-// initializeAuth must run exactly once per app. If you see
-// "Firebase: Auth already initialized" in dev, restart Metro with --clear.
-export const auth = initializeAuth(app);
+// In React Native, getReactNativePersistence(AsyncStorage) is required for the
+// auth UID to survive cold starts. Firebase JS SDK v10 ships this via a
+// conditional react-native build that Metro resolves automatically.
+export const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage),
+});
 
 export const db = getFirestore(app);
