@@ -8,11 +8,19 @@ service cloud.firestore {
       allow create, update: if request.auth != null && request.auth.uid == uid;
     }
 
-    // Notes: any authenticated user can read; writes are added later in
-    // Phase 2 (server writes them; clients only read for MVP).
+    // Notes: authenticated users can read and append. No updates or deletes.
+    // The authorUid on a new note must match the writer's auth UID; the
+    // server-side path (Phase 5) will use Admin SDK and bypass these rules.
     match /notes/{noteId} {
       allow read: if request.auth != null;
-      allow write: if false; // tightened in Phase 2
+      allow create: if
+        request.auth != null
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 2000
+        && request.resource.data.authorHandle is string;
+      allow update, delete: if false;
     }
   }
 }
