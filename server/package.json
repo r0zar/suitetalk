@@ -1,0 +1,21 @@
+{
+  "name": "suitetalk-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": "20" },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "pino": "^9.5.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.5",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.5.4"
+  }
+}

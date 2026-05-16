@@ -1,0 +1,12 @@
+// Shared message shapes between the RN client and the WS server.
+// Keep this file in sync with src/lib/voice-ws.ts on the client.
+
+export type ClientMessage =
+  | { type: 'hello'; clientId: string; handle: string }
+  | { type: 'audio.chunk'; seq: number; bytes: string } // base64
+  | { type: 'audio.end' };
+
+export type ServerMessage =
+  | { type: 'ready' }
+  | { type: 'ack'; forSeq: number }
+  | { type: 'bye'; reason: string };
