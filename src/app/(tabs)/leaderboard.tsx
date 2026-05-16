@@ -1,7 +1,6 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { DebugFab } from '@/components/debug-fab';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -61,7 +60,6 @@ export default function LeaderboardScreen() {
           )}
         </ScrollView>
       </ThemedView>
-      <DebugFab />
     </ThemedView>
   );
 }

@@ -1,4 +1,3 @@
-import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,7 +34,6 @@ type RunState =
 
 export default function DebugScreen() {
   const theme = useTheme();
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [state, setState] = useState<RunState>({ status: 'idle' });
 
@@ -69,13 +67,6 @@ export default function DebugScreen() {
         ]}>
         <View style={styles.header}>
           <ThemedText type="subtitle">Debug</ThemedText>
-          <Pressable
-            onPress={() => router.back()}
-            style={({ pressed }) => pressed && styles.pressed}>
-            <ThemedView type="backgroundElement" style={styles.closeButton}>
-              <ThemedText type="smallBold">Close</ThemedText>
-            </ThemedView>
-          </Pressable>
         </View>
 
         <View style={styles.panels}>
@@ -163,11 +154,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  closeButton: {
-    paddingVertical: Spacing.one,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.three,
   },
   pressed: {
     opacity: 0.7,
