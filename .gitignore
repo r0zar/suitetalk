@@ -45,3 +45,7 @@ app-example
 # generated native folders
 /ios
 /android
+
+# server build artifacts
+server/dist
+server/node_modules
