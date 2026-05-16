@@ -8,6 +8,7 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getIdentity } from '@/lib/identity';
 import { postNote } from '@/lib/notes';
+import { openVoiceSession } from '@/lib/voice-ws';
 
 type DebugAction = {
   label: string;
@@ -22,6 +23,42 @@ const ACTIONS: DebugAction[] = [
       const text = `test note ${Math.random().toString(36).slice(2, 6)}`;
       const id = await postNote({ text, authorUid: uid, authorHandle: handle });
       return { ok: true, noteId: id, text, authorHandle: handle };
+    },
+  },
+  {
+    label: 'Voice WS round-trip',
+    run: async () => {
+      const { uid, handle } = await getIdentity();
+      const events: string[] = [];
+      const startedAt = Date.now();
+      const session = openVoiceSession({
+        clientId: uid,
+        handle,
+        onOpen: () => events.push('open'),
+        onClose: (code, reason) => events.push(`close ${code} ${reason}`),
+        onError: () => events.push('error'),
+      });
+      const ack = await new Promise<unknown>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('no ack in 5s')), 5000);
+        session.onServerMessage((msg) => {
+          events.push(`recv ${msg.type}`);
+          if (msg.type === 'ready') {
+            session.sendChunk('SGVsbG8gV29ybGQ='); // base64("Hello World")
+          }
+          if (msg.type === 'ack') {
+            clearTimeout(timeout);
+            session.end();
+            session.close();
+            resolve(msg);
+          }
+        });
+      });
+      return {
+        url: session.url,
+        durationMs: Date.now() - startedAt,
+        events,
+        ack,
+      };
     },
   },
 ];
