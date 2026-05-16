@@ -13,6 +13,7 @@ export type Identity = {
 
 const HANDLE_KEY = 'suitetalk.web.handle.v1';
 const UID_KEY = 'suitetalk.web.uid.v1';
+const ONBOARDED_KEY = 'suitetalk.web.onboarded.v1';
 
 function readLocal(key: string): string | null {
   try {
@@ -30,11 +31,8 @@ function writeLocal(key: string, value: string): void {
   }
 }
 
-let inflight: Promise<Identity> | null = null;
-
 async function resolveIdentity(): Promise<Identity> {
   let uid = readLocal(UID_KEY);
-  const isFresh = !uid;
   if (!uid) {
     uid = `web-${Math.random().toString(36).slice(2, 10)}`;
     writeLocal(UID_KEY, uid);
@@ -44,12 +42,15 @@ async function resolveIdentity(): Promise<Identity> {
     handle = generateHandle();
     writeLocal(HANDLE_KEY, handle);
   }
+  const isFresh = readLocal(ONBOARDED_KEY) !== '1';
   return { uid, handle, isFresh };
 }
 
+// Re-read on every call so renames + onboarding-completion are observable to
+// later useIdentity() consumers. Memoizing would mask state changes across
+// hook instances.
 export function getIdentity(): Promise<Identity> {
-  if (!inflight) inflight = resolveIdentity();
-  return inflight;
+  return resolveIdentity();
 }
 
 export async function renameHandle(_uid: string, handle: string): Promise<void> {
@@ -58,4 +59,5 @@ export async function renameHandle(_uid: string, handle: string): Promise<void> 
     throw new Error('Handle must be 2–32 lowercase letters, digits, or hyphens.');
   }
   writeLocal(HANDLE_KEY, trimmed);
+  writeLocal(ONBOARDED_KEY, '1');
 }

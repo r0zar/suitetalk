@@ -1,13 +1,13 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useIdentity } from '@/hooks/use-identity';
+import { useTheme } from '@/hooks/use-theme';
 
 export default function OnboardingScreen() {
   const theme = useTheme();
@@ -15,10 +15,18 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const { state, rename } = useIdentity();
 
-  const initial = state.status === 'ready' ? state.identity.handle : '';
-  const [value, setValue] = useState(initial);
+  const [value, setValue] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [seeded, setSeeded] = useState(false);
+
+  // Seed the input from the resolved handle exactly once, when identity flips to ready.
+  useEffect(() => {
+    if (!seeded && state.status === 'ready') {
+      setValue(state.identity.handle);
+      setSeeded(true);
+    }
+  }, [seeded, state]);
 
   if (state.status !== 'ready') return <ThemedView style={{ flex: 1 }} />;
 
@@ -26,7 +34,9 @@ export default function OnboardingScreen() {
     setError(null);
     setBusy(true);
     try {
-      if (next !== state.identity.handle) await rename(next);
+      // Always call rename even if unchanged — it's the side-channel that
+      // marks the identity as onboarded (sets isFresh = false on next read).
+      await rename(next);
       router.replace('/');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -36,11 +46,15 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <ThemedView style={[styles.root, { paddingTop: insets.top + Spacing.six, paddingBottom: insets.bottom + Spacing.four }]}>
+    <ThemedView
+      style={[
+        styles.root,
+        { paddingTop: insets.top + Spacing.six, paddingBottom: insets.bottom + Spacing.four },
+      ]}>
       <View style={styles.body}>
         <ThemedText type="subtitle">Welcome to SuiteTalk</ThemedText>
         <ThemedText themeColor="textSecondary">
-          We've picked a handle for you. Keep it, or change it now. (You can rename later.)
+          We&apos;ve picked a handle for you. Keep it, or change it now. (You can rename later.)
         </ThemedText>
 
         <ThemedView type="backgroundElement" style={styles.inputWrap}>
@@ -65,10 +79,24 @@ export default function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, paddingHorizontal: Spacing.four },
-  body: { gap: Spacing.three },
-  inputWrap: { borderRadius: Spacing.three, paddingHorizontal: Spacing.three },
-  input: { fontSize: 16, paddingVertical: Spacing.three },
+  root: {
+    flex: 1,
+    paddingHorizontal: Spacing.four,
+    alignItems: 'center',
+  },
+  body: {
+    gap: Spacing.three,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+  },
+  inputWrap: {
+    borderRadius: Spacing.three,
+    paddingHorizontal: Spacing.three,
+  },
+  input: {
+    fontSize: 16,
+    paddingVertical: Spacing.three,
+  },
   button: {
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.four,
