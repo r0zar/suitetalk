@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -14,6 +14,66 @@ type DebugAction = {
   label: string;
   run: () => Promise<unknown>;
 };
+
+async function captureMicAndStream(
+  onTranscript: (kind: 'partial' | 'committed', text: string) => void,
+  durationMs = 5000,
+): Promise<void> {
+  if (Platform.OS !== 'web') throw new Error('Mic capture is web-only for now');
+  const { uid, handle } = await getIdentity();
+  const session = openVoiceSession({ clientId: uid, handle });
+  session.onServerMessage((msg) => {
+    if (msg.type === 'transcript') onTranscript(msg.kind, msg.text);
+  });
+
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const ctx = new AudioContext({ sampleRate: 16000 });
+  const source = ctx.createMediaStreamSource(stream);
+  // Tiny inline AudioWorklet that converts Float32 → Int16 PCM and posts
+  // base64 strings up to the main thread.
+  const workletSrc = `
+    class PCM16Emitter extends AudioWorkletProcessor {
+      process(inputs) {
+        const ch = inputs[0]?.[0];
+        if (!ch) return true;
+        const buf = new Int16Array(ch.length);
+        for (let i = 0; i < ch.length; i++) {
+          const s = Math.max(-1, Math.min(1, ch[i]));
+          buf[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+        }
+        this.port.postMessage(buf.buffer, [buf.buffer]);
+        return true;
+      }
+    }
+    registerProcessor('pcm16-emitter', PCM16Emitter);
+  `;
+  const blob = new Blob([workletSrc], { type: 'application/javascript' });
+  await ctx.audioWorklet.addModule(URL.createObjectURL(blob));
+  const node = new AudioWorkletNode(ctx, 'pcm16-emitter');
+
+  node.port.onmessage = (ev) => {
+    const bytes = new Uint8Array(ev.data as ArrayBuffer);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    const b64 = globalThis.btoa(bin);
+    session.sendChunk(b64);
+  };
+
+  source.connect(node);
+
+  await new Promise<void>((resolve) => setTimeout(resolve, durationMs));
+
+  node.disconnect();
+  source.disconnect();
+  stream.getTracks().forEach((t) => t.stop());
+  await ctx.close();
+  session.end();
+  // Give ElevenLabs a moment to emit the final committed transcript before
+  // we close the WS — 1500ms is more than the VAD threshold, so any
+  // remaining audio will commit.
+  await new Promise<void>((resolve) => setTimeout(resolve, 1500));
+  session.close();
+}
 
 const ACTIONS: DebugAction[] = [
   {
@@ -58,6 +118,21 @@ const ACTIONS: DebugAction[] = [
         durationMs: Date.now() - startedAt,
         events,
         ack,
+      };
+    },
+  },
+  {
+    label: 'Stream mic to STT (5s)',
+    run: async () => {
+      const transcripts: { kind: string; text: string; t: number }[] = [];
+      const start = Date.now();
+      await captureMicAndStream((kind, text) => {
+        transcripts.push({ kind, text, t: Date.now() - start });
+      });
+      return {
+        captureMs: 5000,
+        durationMs: Date.now() - start,
+        transcripts,
       };
     },
   },
