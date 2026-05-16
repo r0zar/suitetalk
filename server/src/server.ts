@@ -3,6 +3,7 @@ import pino from 'pino';
 import { WebSocketServer, type WebSocket } from 'ws';
 
 import type { ClientMessage, ServerMessage } from './types.js';
+import { openUpstream } from './elevenlabs.js';
 
 const log = pino({ level: process.env.LOG_LEVEL ?? 'info' });
 const PORT = Number(process.env.PORT ?? 8080);
@@ -32,6 +33,34 @@ wss.on('connection', (ws, req) => {
 
   let clientHandle: string | null = null;
 
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  const upstream = apiKey
+    ? openUpstream({
+        apiKey,
+        onEvent: (event) => {
+          switch (event.kind) {
+            case 'session_started':
+              sessionLog.info('elevenlabs session started');
+              break;
+            case 'partial_transcript':
+              send(ws, { type: 'transcript', kind: 'partial', text: event.text });
+              break;
+            case 'committed_transcript':
+              sessionLog.info({ text: event.text }, 'committed transcript');
+              send(ws, { type: 'transcript', kind: 'committed', text: event.text });
+              break;
+            case 'error':
+              sessionLog.error({ msg: event.message }, 'elevenlabs upstream error');
+              break;
+            case 'closed':
+              sessionLog.info({ code: event.code, reason: event.reason }, 'elevenlabs upstream closed');
+              break;
+          }
+        },
+      })
+    : null;
+  if (!apiKey) sessionLog.warn('ELEVENLABS_API_KEY not set; running in echo-only mode');
+
   send(ws, { type: 'ready' });
 
   ws.on('message', (raw) => {
@@ -52,6 +81,7 @@ wss.on('connection', (ws, req) => {
         break;
       case 'audio.chunk':
         sessionLog.debug({ seq: msg.seq, bytes: msg.bytes.length }, 'audio chunk');
+        upstream?.sendChunk(msg.bytes);
         send(ws, { type: 'ack', forSeq: msg.seq });
         break;
       case 'audio.end':
@@ -64,6 +94,7 @@ wss.on('connection', (ws, req) => {
 
   ws.on('close', (code, reason) => {
     sessionLog.info({ code, reason: reason.toString() }, 'client disconnected');
+    upstream?.close();
   });
 
   ws.on('error', (err) => {
