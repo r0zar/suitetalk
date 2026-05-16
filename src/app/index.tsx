@@ -1,98 +1,142 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
+import { fetch as expoFetch } from 'expo/fetch';
+import { useState } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
+import { DebugFab } from '@/components/debug-fab';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+import { generateAPIUrl } from '@/utils';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+export default function ChatScreen() {
+  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const [input, setInput] = useState('');
+
+  const { messages, error, sendMessage } = useChat({
+    transport: new DefaultChatTransport({
+      fetch: expoFetch as unknown as typeof globalThis.fetch,
+      api: generateAPIUrl('/api/chat'),
+    }),
+    onError: (err) => console.error(err, 'ERROR'),
+  });
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+    <ThemedView style={styles.root}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.flex}
+        keyboardVerticalOffset={insets.top}>
+        <ThemedView
+          style={[
+            styles.container,
+            { paddingTop: insets.top + Spacing.three, paddingBottom: insets.bottom + Spacing.three },
+          ]}>
+          {error ? (
+            <ThemedText themeColor="textSecondary">{error.message}</ThemedText>
+          ) : null}
 
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled">
+            {messages.length === 0 ? (
+              <ThemedView style={styles.emptyState}>
+                <ThemedText type="subtitle">Chat</ThemedText>
+                <ThemedText themeColor="textSecondary">Say something to get started.</ThemedText>
+              </ThemedView>
+            ) : (
+              messages.map((m) => (
+                <ThemedView
+                  key={m.id}
+                  type="backgroundElement"
+                  style={styles.messageBubble}>
+                  <ThemedText type="smallBold" themeColor="textSecondary">
+                    {m.role}
+                  </ThemedText>
+                  {m.parts.map((part, i) => {
+                    switch (part.type) {
+                      case 'text':
+                        return <ThemedText key={`${m.id}-${i}`}>{part.text}</ThemedText>;
+                      case 'tool-weather':
+                        return (
+                          <ThemedText key={`${m.id}-${i}`} type="code">
+                            {JSON.stringify(part, null, 2)}
+                          </ThemedText>
+                        );
+                      default:
+                        return null;
+                    }
+                  })}
+                </ThemedView>
+              ))
+            )}
+          </ScrollView>
+
+          <ThemedView type="backgroundElement" style={styles.inputWrapper}>
+            <TextInput
+              style={[styles.input, { color: theme.text }]}
+              placeholder="Say something..."
+              placeholderTextColor={theme.textSecondary}
+              value={input}
+              onChangeText={setInput}
+              onSubmitEditing={(e) => {
+                e.preventDefault();
+                if (!input.trim()) return;
+                sendMessage({ text: input });
+                setInput('');
+              }}
+              returnKeyType="send"
+            />
+          </ThemedView>
         </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
+      </KeyboardAvoidingView>
+      <DebugFab />
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+  flex: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
+    width: '100%',
     maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.four,
+    gap: Spacing.three,
   },
-  heroSection: {
+  scrollContent: {
+    gap: Spacing.three,
+    paddingVertical: Spacing.three,
+  },
+  emptyState: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+    gap: Spacing.two,
+    paddingVertical: Spacing.six,
   },
-  title: {
-    textAlign: 'center',
+  messageBubble: {
+    gap: Spacing.one,
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
   },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
+  inputWrapper: {
+    borderRadius: Spacing.three,
     paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  },
+  input: {
+    fontSize: 16,
+    paddingVertical: Spacing.three,
   },
 });
