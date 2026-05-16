@@ -10,6 +10,7 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  where,
   type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 
@@ -51,6 +52,24 @@ export function subscribeToNotes(
 ): () => void {
   return onSnapshot(
     notesQuery(),
+    (qs) => onChange(qs.docs.map(toNote)),
+    (err) => onError?.(err),
+  );
+}
+
+export function subscribeToNotesSince(
+  since: Date,
+  onChange: (notes: Note[]) => void,
+  onError?: (err: Error) => void,
+): () => void {
+  const q = query(
+    collection(webDb, 'notes'),
+    where('createdAt', '>=', Timestamp.fromDate(since)),
+    orderBy('createdAt', 'desc'),
+    limit(5000),
+  );
+  return onSnapshot(
+    q,
     (qs) => onChange(qs.docs.map(toNote)),
     (err) => onError?.(err),
   );

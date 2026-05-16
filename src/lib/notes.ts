@@ -43,6 +43,22 @@ export function subscribeToNotes(
   );
 }
 
+export function subscribeToNotesSince(
+  since: Date,
+  onChange: (notes: Note[]) => void,
+  onError?: (err: Error) => void,
+): () => void {
+  return firestore()
+    .collection('notes')
+    .where('createdAt', '>=', firestore.Timestamp.fromDate(since))
+    .orderBy('createdAt', 'desc')
+    .limit(5000)
+    .onSnapshot(
+      (qs) => onChange(qs.docs.map(toNote)),
+      (err) => onError?.(err),
+    );
+}
+
 export async function postNote(input: {
   text: string;
   authorUid: string;
