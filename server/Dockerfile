@@ -1,7 +1,7 @@
 # Multi-stage: build TS in a fat image, copy dist + node_modules to a slim runtime.
 FROM node:20-bookworm-slim AS build
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10.13.1 --activate
 COPY package.json pnpm-lock.yaml* ./
 RUN pnpm install --frozen-lockfile --prod=false
 COPY tsconfig.json ./
