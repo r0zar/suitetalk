@@ -1,6 +1,7 @@
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { fetch as expoFetch } from 'expo/fetch';
+import { Redirect } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +20,9 @@ export default function ChatScreen() {
   const [input, setInput] = useState('');
 
   const { state: idState } = useIdentity();
+  if (idState.status === 'ready' && idState.identity.isFresh) {
+    return <Redirect href="/onboarding" />;
+  }
   const handle = idState.status === 'ready' ? idState.identity.handle : '...';
 
   const { messages, error, sendMessage } = useChat({
