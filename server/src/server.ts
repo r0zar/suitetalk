@@ -4,6 +4,8 @@ import { WebSocketServer, type WebSocket } from 'ws';
 
 import type { ClientMessage, ServerMessage } from './types.js';
 import { openUpstream } from './elevenlabs.js';
+import { WakeMachine } from './wake-machine.js';
+import { writeNote } from './firestore.js';
 
 const log = pino({ level: process.env.LOG_LEVEL ?? 'info' });
 const PORT = Number(process.env.PORT ?? 8080);
@@ -32,6 +34,8 @@ wss.on('connection', (ws, req) => {
   sessionLog.info('client connected');
 
   let clientHandle: string | null = null;
+  let clientUid: string | null = null;
+  const wake = new WakeMachine();
 
   const apiKey = process.env.ELEVENLABS_API_KEY;
   const upstream = apiKey
@@ -45,10 +49,29 @@ wss.on('connection', (ws, req) => {
             case 'partial_transcript':
               send(ws, { type: 'transcript', kind: 'partial', text: event.text });
               break;
-            case 'committed_transcript':
+            case 'committed_transcript': {
               sessionLog.info({ text: event.text }, 'committed transcript');
               send(ws, { type: 'transcript', kind: 'committed', text: event.text });
+              const result = wake.feed(event.text);
+              if (result.kind === 'utterance') {
+                const uid = clientUid;
+                const handle = clientHandle;
+                if (!uid || !handle) {
+                  sessionLog.warn('wake triggered but client identity missing; skipping note');
+                  break;
+                }
+                writeNote({ authorUid: uid, authorHandle: handle, text: result.text })
+                  .then((noteId) => {
+                    sessionLog.info({ noteId, text: result.text }, 'note written');
+                  })
+                  .catch((err) => {
+                    sessionLog.error({ err }, 'failed to write note');
+                  });
+              } else if (result.kind === 'armed') {
+                sessionLog.info('wake armed; capturing next utterance');
+              }
               break;
+            }
             case 'error':
               sessionLog.error({ msg: event.message }, 'elevenlabs upstream error');
               break;
@@ -76,6 +99,7 @@ wss.on('connection', (ws, req) => {
 
     switch (msg.type) {
       case 'hello':
+        clientUid = msg.clientId;
         clientHandle = msg.handle;
         sessionLog.info({ clientId: msg.clientId, handle: msg.handle }, 'hello');
         break;
