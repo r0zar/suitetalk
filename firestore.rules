@@ -1,0 +1,18 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users may read any handle (needed for displaying authors), and only
+    // write their own user doc.
+    match /users/{uid} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Notes: any authenticated user can read; writes are added later in
+    // Phase 2 (server writes them; clients only read for MVP).
+    match /notes/{noteId} {
+      allow read: if request.auth != null;
+      allow write: if false; // tightened in Phase 2
+    }
+  }
+}
