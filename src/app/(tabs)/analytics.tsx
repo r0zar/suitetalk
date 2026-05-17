@@ -4,12 +4,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
-import { useLeaderboard } from '@/hooks/use-leaderboard';
+import { useAnalytics } from '@/hooks/use-analytics';
+import { formatHour } from '@/lib/analytics';
 
-export default function LeaderboardScreen() {
+export default function AnalyticsScreen() {
   const insets = useSafeAreaInsets();
-  const { status, rows, currentRow, error } = useLeaderboard();
-  const currentHandle = currentRow?.handle ?? null;
+  const { status, analytics, error } = useAnalytics();
 
   return (
     <ThemedView style={styles.root}>
@@ -22,7 +22,7 @@ export default function LeaderboardScreen() {
           },
         ]}>
         <View style={styles.header}>
-          <ThemedText type="subtitle">Leaderboard</ThemedText>
+          <ThemedText type="subtitle">Analytics</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             this month
           </ThemedText>
@@ -32,34 +32,56 @@ export default function LeaderboardScreen() {
           <ThemedText themeColor="textSecondary">{error}</ThemedText>
         ) : null}
 
+        <View style={styles.statRow}>
+          <Stat label="Notes" value={String(analytics.total)} />
+          <Stat label="Authors" value={String(analytics.uniqueAuthors)} />
+          <Stat
+            label="Busiest hour"
+            value={
+              analytics.busiestHour
+                ? formatHour(analytics.busiestHour.hour)
+                : '—'
+            }
+          />
+        </View>
+
+        <ThemedText type="smallBold" themeColor="textSecondary">
+          By author
+        </ThemedText>
+
         <ScrollView
           style={styles.flex}
           contentContainerStyle={styles.list}>
-          {rows.length === 0 ? (
+          {analytics.perUser.length === 0 ? (
             <ThemedView style={styles.emptyState}>
               <ThemedText themeColor="textSecondary">
                 No notes this month yet.
               </ThemedText>
             </ThemedView>
           ) : (
-            rows.map((r) => {
-              const isMe = r.handle === currentHandle;
-              return (
-                <ThemedView
-                  key={r.handle}
-                  type={isMe ? 'backgroundSelected' : 'backgroundElement'}
-                  style={styles.row}>
-                  <ThemedText type="smallBold" style={styles.rank}>
-                    #{r.rank}
-                  </ThemedText>
-                  <ThemedText style={styles.handle}>{r.handle}</ThemedText>
-                  <ThemedText type="smallBold">{r.count}</ThemedText>
-                </ThemedView>
-              );
-            })
+            analytics.perUser.map((u) => (
+              <ThemedView
+                key={u.handle}
+                type="backgroundElement"
+                style={styles.row}>
+                <ThemedText style={styles.handle}>{u.handle}</ThemedText>
+                <ThemedText type="smallBold">{u.count}</ThemedText>
+              </ThemedView>
+            ))
           )}
         </ScrollView>
       </ThemedView>
+    </ThemedView>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <ThemedView type="backgroundElement" style={styles.stat}>
+      <ThemedText type="subtitle">{value}</ThemedText>
+      <ThemedText type="small" themeColor="textSecondary">
+        {label}
+      </ThemedText>
     </ThemedView>
   );
 }
@@ -80,6 +102,18 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     justifyContent: 'space-between',
   },
+  statRow: {
+    flexDirection: 'row',
+    gap: Spacing.one,
+  },
+  stat: {
+    flex: 1,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.two,
+    borderRadius: Spacing.two,
+    alignItems: 'center',
+    gap: Spacing.half,
+  },
   list: { gap: Spacing.one, paddingVertical: Spacing.one },
   emptyState: {
     flex: 1,
@@ -95,6 +129,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.two,
   },
-  rank: { minWidth: 28 },
   handle: { flex: 1 },
 });
