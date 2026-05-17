@@ -180,7 +180,7 @@ export default function DebugScreen() {
           { paddingTop: insets.top + Spacing.three, paddingBottom: insets.bottom + Spacing.three },
         ]}>
         <View style={styles.header}>
-          <ThemedText type="subtitle">Debug</ThemedText>
+          <ThemedText type="subtitle">Settings</ThemedText>
         </View>
 
         <View style={[styles.panels, isNarrow && styles.panelsStacked]}>
@@ -188,7 +188,7 @@ export default function DebugScreen() {
             type="backgroundElement"
             style={[styles.actionsPanel, isNarrow && styles.actionsPanelNarrow]}>
             <ThemedText type="smallBold" themeColor="textSecondary" style={styles.panelLabel}>
-              ACTIONS
+              DEBUG ACTIONS
             </ThemedText>
             <ScrollView contentContainerStyle={styles.actionList}>
               {ACTIONS.map((action) => {
