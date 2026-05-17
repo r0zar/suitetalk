@@ -2,16 +2,19 @@ import { Redirect } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ListenButton } from '@/components/listen-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useIdentity } from '@/hooks/use-identity';
 import { useNotes } from '@/hooks/use-notes';
+import { useShift } from '@/hooks/use-shift';
 
 export default function FeedScreen() {
   const insets = useSafeAreaInsets();
   const { state: idState } = useIdentity();
   const feed = useNotes();
+  const shift = useShift();
 
   if (idState.status === 'ready' && idState.identity.isFresh) {
     return <Redirect href="/onboarding" />;
@@ -19,8 +22,8 @@ export default function FeedScreen() {
 
   const handle = idState.status === 'ready' ? idState.identity.handle : '...';
 
-  // Render newest at the bottom for chat-like flow.
-  const ordered = [...feed.notes].reverse();
+  // Feed query returns newest-first (orderBy createdAt desc); render in that order.
+  const ordered = feed.notes;
 
   return (
     <ThemedView style={styles.root}>
@@ -28,8 +31,8 @@ export default function FeedScreen() {
         style={[
           styles.container,
           {
-            paddingTop: insets.top + Spacing.three,
-            paddingBottom: insets.bottom + Spacing.three,
+            paddingTop: insets.top + Spacing.two,
+            paddingBottom: insets.bottom + Spacing.two,
           },
         ]}>
         <ThemedView style={styles.header}>
@@ -74,6 +77,13 @@ export default function FeedScreen() {
             ))
           )}
         </ScrollView>
+
+        <ListenButton
+          status={shift.state.status}
+          transcript={shift.state.status === 'live' ? shift.state.transcript : undefined}
+          errorMessage={shift.state.status === 'error' ? shift.state.message : undefined}
+          onPress={shift.state.status === 'live' ? shift.stop : shift.start}
+        />
       </ThemedView>
     </ThemedView>
   );
@@ -87,8 +97,8 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    gap: Spacing.two,
   },
   header: {
     flexDirection: 'row',
@@ -96,20 +106,21 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   scrollContent: {
-    gap: Spacing.three,
-    paddingVertical: Spacing.three,
+    gap: Spacing.two,
+    paddingVertical: Spacing.two,
   },
   emptyState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.two,
-    paddingVertical: Spacing.six,
+    gap: Spacing.one,
+    paddingVertical: Spacing.five,
   },
   messageBubble: {
-    gap: Spacing.one,
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
+    gap: Spacing.half,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.two,
   },
   bubbleMeta: {
     flexDirection: 'row',
