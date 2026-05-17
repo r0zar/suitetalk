@@ -1,65 +1,55 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+
+type Status = 'idle' | 'starting' | 'live' | 'reconnecting' | 'stopping' | 'error';
 
 type Props = {
-  status: 'idle' | 'starting' | 'live' | 'stopping' | 'error';
-  transcript?: string;
-  errorMessage?: string;
+  status: Status;
   onPress: () => void;
 };
 
-export function ListenButton({ status, transcript, errorMessage, onPress }: Props) {
-  const label =
-    status === 'idle' ? 'Start Listening'
-    : status === 'starting' ? 'Starting…'
-    : status === 'live' ? 'Listening — tap to stop'
-    : status === 'stopping' ? 'Stopping…'
-    : 'Retry';
-
-  const isLive = status === 'live';
+export function ListenToggle({ status, onPress }: Props) {
+  const theme = useTheme();
+  const isActive = status === 'live' || status === 'reconnecting';
   const isBusy = status === 'starting' || status === 'stopping';
 
+  const icon: keyof typeof Ionicons.glyphMap =
+    status === 'reconnecting' ? 'sync-outline'
+    : isActive ? 'mic'
+    : 'mic-outline';
+
+  // Use text color for the icon so it shows up clearly against the bubble.
+  const tint = isActive ? theme.text : theme.textSecondary;
+
   return (
-    <ThemedView style={styles.wrap}>
-      <Pressable disabled={isBusy} onPress={onPress}>
-        <ThemedView
-          type={isLive ? 'backgroundSelected' : 'backgroundElement'}
-          style={styles.button}>
-          <ThemedText type="smallBold">{label}</ThemedText>
-        </ThemedView>
-      </Pressable>
-      {isLive && transcript ? (
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
-          {transcript}
-        </ThemedText>
-      ) : null}
-      {status === 'error' && errorMessage ? (
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={3}>
-          {errorMessage}
-        </ThemedText>
-      ) : null}
-      {status === 'idle' ? (
-        <ThemedText type="small" themeColor="textSecondary">
-          Say &ldquo;heads up&rdquo; then your note.
-        </ThemedText>
-      ) : null}
-    </ThemedView>
+    <Pressable
+      onPress={onPress}
+      disabled={isBusy}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={
+        isActive ? 'Stop listening' : isBusy ? 'Busy' : 'Start listening'
+      }>
+      <ThemedView
+        type={isActive ? 'backgroundSelected' : 'backgroundElement'}
+        style={styles.button}>
+        <Ionicons name={icon} size={18} color={tint} />
+      </ThemedView>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    gap: Spacing.one,
-    alignItems: 'center',
-  },
   button: {
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.four,
-    borderRadius: Spacing.two,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
-    minWidth: 200,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.one,
   },
 });

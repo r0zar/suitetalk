@@ -2,7 +2,7 @@ import { Redirect } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ListenButton } from '@/components/listen-button';
+import { ListenToggle } from '@/components/listen-toggle';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -25,6 +25,20 @@ export default function FeedScreen() {
   // Feed query returns newest-first (orderBy createdAt desc); render in that order.
   const ordered = feed.notes;
 
+  const live = shift.state.status === 'live' ? shift.state : null;
+  // Show a preview bubble whenever we have STT text. If "heads up" has been
+  // heard, render it solid; otherwise faded — visually signaling what will
+  // actually be saved.
+  const previewText = live?.preview.armedText ?? live?.preview.partial ?? '';
+  const showPreview = !!live && previewText.trim().length > 0;
+  const isArmed = !!live?.preview.armedText;
+
+  const toggleStatus = shift.state.status;
+  const onToggle =
+    toggleStatus === 'live' || toggleStatus === 'reconnecting'
+      ? shift.stop
+      : shift.start;
+
   return (
     <ThemedView style={styles.root}>
       <ThemedView
@@ -36,20 +50,47 @@ export default function FeedScreen() {
           },
         ]}>
         <ThemedView style={styles.header}>
-          <ThemedText type="smallBold" themeColor="textSecondary">
-            YOU ARE
-          </ThemedText>
-          <ThemedText type="smallBold">{handle}</ThemedText>
+          <View style={styles.headerLeft}>
+            <ThemedText type="smallBold" themeColor="textSecondary">
+              YOU ARE
+            </ThemedText>
+            <ThemedText type="smallBold">{handle}</ThemedText>
+          </View>
+          <ListenToggle status={toggleStatus} onPress={onToggle} />
         </ThemedView>
 
         {feed.status === 'error' ? (
           <ThemedText themeColor="textSecondary">{feed.error}</ThemedText>
         ) : null}
 
+        {shift.state.status === 'error' ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            {shift.state.message}
+          </ThemedText>
+        ) : null}
+
         <ScrollView
           style={styles.flex}
           contentContainerStyle={styles.scrollContent}>
-          {ordered.length === 0 ? (
+          {showPreview ? (
+            <ThemedView
+              type={isArmed ? 'backgroundSelected' : 'backgroundElement'}
+              style={[styles.messageBubble, !isArmed && styles.previewDim]}>
+              <View style={styles.bubbleMeta}>
+                <ThemedText type="smallBold" themeColor="textSecondary">
+                  {handle}
+                </ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {isArmed ? 'recording…' : 'listening…'}
+                </ThemedText>
+              </View>
+              <ThemedText themeColor={isArmed ? undefined : 'textSecondary'}>
+                {previewText}
+              </ThemedText>
+            </ThemedView>
+          ) : null}
+
+          {ordered.length === 0 && !showPreview ? (
             <ThemedView style={styles.emptyState}>
               <ThemedText type="subtitle">No notes yet</ThemedText>
               <ThemedText themeColor="textSecondary">
@@ -77,13 +118,6 @@ export default function FeedScreen() {
             ))
           )}
         </ScrollView>
-
-        <ListenButton
-          status={shift.state.status}
-          transcript={shift.state.status === 'live' ? shift.state.transcript : undefined}
-          errorMessage={shift.state.status === 'error' ? shift.state.message : undefined}
-          onPress={shift.state.status === 'live' ? shift.stop : shift.start}
-        />
       </ThemedView>
     </ThemedView>
   );
@@ -101,6 +135,12 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: Spacing.two,
@@ -121,6 +161,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.two,
+  },
+  previewDim: {
+    opacity: 0.6,
   },
   bubbleMeta: {
     flexDirection: 'row',
