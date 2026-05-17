@@ -23,14 +23,19 @@ export function WakeToggle({ wakeEnabled, onPress }: Props) {
 
   const tint = wakeEnabled ? theme.text : theme.textSecondary;
 
+  const label = wakeEnabled
+    ? 'Wake phrase on — only “heads up” triggers notes. Tap to disable.'
+    : 'Wake phrase off — every utterance becomes a note. Tap to enable.';
+
   return (
     <Pressable
       onPress={onPress}
       hitSlop={8}
       accessibilityRole="button"
-      accessibilityLabel={
-        wakeEnabled ? 'Disable wake phrase' : 'Enable wake phrase'
-      }>
+      accessibilityLabel={label}
+      // `title` is passed through by react-native-web to the underlying DOM
+      // element to give a browser hover tooltip. RN types don't include it.
+      {...({ title: label } as object)}>
       <ThemedView
         type={wakeEnabled ? 'backgroundSelected' : 'backgroundElement'}
         style={styles.button}>

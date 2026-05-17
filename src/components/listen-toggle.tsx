@@ -25,15 +25,22 @@ export function ListenToggle({ status, onPress }: Props) {
   // Use text color for the icon so it shows up clearly against the bubble.
   const tint = isActive ? theme.text : theme.textSecondary;
 
+  const label =
+    status === 'reconnecting' ? 'Reconnecting… tap to stop'
+    : isActive ? 'Stop listening'
+    : isBusy ? 'Busy…'
+    : 'Start listening';
+
   return (
     <Pressable
       onPress={onPress}
       disabled={isBusy}
       hitSlop={8}
       accessibilityRole="button"
-      accessibilityLabel={
-        isActive ? 'Stop listening' : isBusy ? 'Busy' : 'Start listening'
-      }>
+      accessibilityLabel={label}
+      // `title` is passed through by react-native-web to the underlying DOM
+      // element to give a browser hover tooltip. RN types don't include it.
+      {...({ title: label } as object)}>
       <ThemedView
         type={isActive ? 'backgroundSelected' : 'backgroundElement'}
         style={styles.button}>
