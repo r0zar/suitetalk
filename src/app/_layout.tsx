@@ -1,4 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, useColorScheme, View } from 'react-native';
@@ -10,6 +12,20 @@ import { useIdentity } from '@/hooks/use-identity';
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const { state } = useIdentity();
+  // The vector-icon font files only auto-register on native. On web we have to
+  // load them via expo-font, otherwise icons render as fallback glyphs / boxes
+  // until the font happens to arrive.
+  const [fontsLoaded] = useFonts(Ionicons.font);
+
+  if (!fontsLoaded) {
+    return (
+      <View style={styles.root}>
+        <ThemedView style={styles.overlay}>
+          <ActivityIndicator />
+        </ThemedView>
+      </View>
+    );
+  }
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
