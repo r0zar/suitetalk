@@ -1,6 +1,7 @@
 import { Redirect } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ListenToggle } from '@/components/listen-toggle';
@@ -29,9 +30,10 @@ export default function FeedScreen() {
   const ordered = feed.notes;
 
   const live = shift.state.status === 'live' ? shift.state : null;
-  // Show a preview bubble whenever we have STT text. If "heads up" has been
-  // heard, render it solid; otherwise faded — visually signaling what will
-  // actually be saved.
+  // Inline preview text above the feed while STT is rolling. We prefer the
+  // post-"heads up" text (what will actually be saved) when it's present;
+  // otherwise we show the raw partial so the user knows the mic is hearing
+  // them. No bubble — keeps the visual handoff to the persisted note quiet.
   const previewText = live?.preview.armedText ?? live?.preview.partial ?? '';
   const showPreview = !!live && previewText.trim().length > 0;
   const isArmed = !!live?.preview.armedText;
@@ -78,28 +80,25 @@ export default function FeedScreen() {
           </ThemedText>
         ) : null}
 
+        {showPreview ? (
+          <Animated.View
+            entering={FadeIn.duration(150)}
+            exiting={FadeOut.duration(200)}
+            style={styles.previewRow}>
+            <ThemedText
+              type="small"
+              themeColor="textSecondary"
+              numberOfLines={2}
+              style={!isArmed && styles.previewDim}>
+              {previewText}
+            </ThemedText>
+          </Animated.View>
+        ) : null}
+
         <ScrollView
           style={styles.flex}
           contentContainerStyle={styles.scrollContent}>
-          {showPreview ? (
-            <ThemedView
-              type={isArmed ? 'backgroundSelected' : 'backgroundElement'}
-              style={[styles.messageBubble, !isArmed && styles.previewDim]}>
-              <View style={styles.bubbleMeta}>
-                <ThemedText type="smallBold" themeColor="textSecondary">
-                  {handle}
-                </ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  {isArmed ? 'recording…' : 'listening…'}
-                </ThemedText>
-              </View>
-              <ThemedText themeColor={isArmed ? undefined : 'textSecondary'}>
-                {previewText}
-              </ThemedText>
-            </ThemedView>
-          ) : null}
-
-          {ordered.length === 0 && !showPreview ? (
+          {ordered.length === 0 ? (
             <ThemedView style={styles.emptyState}>
               <ThemedText type="subtitle">No notes yet</ThemedText>
               <ThemedText themeColor="textSecondary">
@@ -108,22 +107,23 @@ export default function FeedScreen() {
             </ThemedView>
           ) : (
             ordered.map((n) => (
-              <ThemedView
-                key={n.id}
-                type="backgroundElement"
-                style={styles.messageBubble}>
-                <View style={styles.bubbleMeta}>
-                  <ThemedText type="smallBold" themeColor="textSecondary">
-                    {n.authorHandle || 'unknown'}
-                  </ThemedText>
-                  {n.createdAt ? (
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {formatTime(n.createdAt)}
+              <Animated.View key={n.id} entering={FadeIn.duration(250)}>
+                <ThemedView
+                  type="backgroundElement"
+                  style={styles.messageBubble}>
+                  <View style={styles.bubbleMeta}>
+                    <ThemedText type="smallBold" themeColor="textSecondary">
+                      {n.authorHandle || 'unknown'}
                     </ThemedText>
-                  ) : null}
-                </View>
-                <ThemedText>{n.text}</ThemedText>
-              </ThemedView>
+                    {n.createdAt ? (
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {formatTime(n.createdAt)}
+                      </ThemedText>
+                    ) : null}
+                  </View>
+                  <ThemedText>{n.text}</ThemedText>
+                </ThemedView>
+              </Animated.View>
             ))
           )}
         </ScrollView>
@@ -178,6 +178,11 @@ const styles = StyleSheet.create({
   },
   previewDim: {
     opacity: 0.6,
+  },
+  previewRow: {
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    minHeight: 20,
   },
   bubbleMeta: {
     flexDirection: 'row',
