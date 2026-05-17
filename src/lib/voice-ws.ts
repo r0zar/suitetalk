@@ -5,17 +5,20 @@
 export type ClientMessage =
   | { type: 'hello'; clientId: string; handle: string }
   | { type: 'audio.chunk'; seq: number; bytes: string }
-  | { type: 'audio.end' };
+  | { type: 'audio.end' }
+  | { type: 'ping'; id: number };
 
 export type ServerMessage =
   | { type: 'ready' }
   | { type: 'ack'; forSeq: number }
   | { type: 'transcript'; kind: 'partial' | 'committed'; text: string }
+  | { type: 'pong'; id: number }
   | { type: 'bye'; reason: string };
 
 export type VoiceSession = {
   readonly url: string;
   sendChunk(bytes: string): void;
+  sendPing(id: number): void;
   end(): void;
   close(): void;
   onServerMessage(handler: (msg: ServerMessage) => void): void;
@@ -86,6 +89,9 @@ export function openVoiceSession(opts: Options): VoiceSession {
     sendChunk(bytes) {
       seq += 1;
       safeSend({ type: 'audio.chunk', seq, bytes });
+    },
+    sendPing(id) {
+      safeSend({ type: 'ping', id });
     },
     end() {
       safeSend({ type: 'audio.end' });

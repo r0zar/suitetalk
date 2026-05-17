@@ -4,10 +4,12 @@
 export type ClientMessage =
   | { type: 'hello'; clientId: string; handle: string }
   | { type: 'audio.chunk'; seq: number; bytes: string } // base64
-  | { type: 'audio.end' };
+  | { type: 'audio.end' }
+  | { type: 'ping'; id: number };
 
 export type ServerMessage =
   | { type: 'ready' }
   | { type: 'ack'; forSeq: number }
   | { type: 'transcript'; kind: 'partial' | 'committed'; text: string }
+  | { type: 'pong'; id: number }
   | { type: 'bye'; reason: string };

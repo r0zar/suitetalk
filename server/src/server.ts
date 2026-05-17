@@ -115,6 +115,9 @@ wss.on('connection', (ws, req) => {
         // enough for that to flow back to the client.
         upstream?.flush();
         break;
+      case 'ping':
+        send(ws, { type: 'pong', id: msg.id });
+        break;
       default:
         sessionLog.warn({ msg }, 'unknown message type');
     }
