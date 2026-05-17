@@ -1,8 +1,10 @@
 import { Redirect } from 'expo-router';
+import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ListenToggle } from '@/components/listen-toggle';
+import { WakeToggle } from '@/components/wake-toggle';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -14,7 +16,8 @@ export default function FeedScreen() {
   const insets = useSafeAreaInsets();
   const { state: idState } = useIdentity();
   const feed = useNotes();
-  const shift = useShift();
+  const [wakeEnabled, setWakeEnabled] = useState(true);
+  const shift = useShift({ wakeEnabled });
 
   if (idState.status === 'ready' && idState.identity.isFresh) {
     return <Redirect href="/onboarding" />;
@@ -56,7 +59,13 @@ export default function FeedScreen() {
             </ThemedText>
             <ThemedText type="smallBold">{handle}</ThemedText>
           </View>
-          <ListenToggle status={toggleStatus} onPress={onToggle} />
+          <View style={styles.headerRight}>
+            <ListenToggle status={toggleStatus} onPress={onToggle} />
+            <WakeToggle
+              wakeEnabled={wakeEnabled}
+              onPress={() => setWakeEnabled((v) => !v)}
+            />
+          </View>
         </ThemedView>
 
         {feed.status === 'error' ? (
@@ -144,6 +153,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: Spacing.two,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
   },
   scrollContent: {
     gap: Spacing.two,

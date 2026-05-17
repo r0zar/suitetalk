@@ -3,10 +3,11 @@
 // localhost during dev and prod during release.
 
 export type ClientMessage =
-  | { type: 'hello'; clientId: string; handle: string }
+  | { type: 'hello'; clientId: string; handle: string; wakeEnabled?: boolean }
   | { type: 'audio.chunk'; seq: number; bytes: string }
   | { type: 'audio.end' }
-  | { type: 'ping'; id: number };
+  | { type: 'ping'; id: number }
+  | { type: 'mode'; wakeEnabled: boolean };
 
 export type ServerMessage =
   | { type: 'ready' }
@@ -19,6 +20,7 @@ export type VoiceSession = {
   readonly url: string;
   sendChunk(bytes: string): void;
   sendPing(id: number): void;
+  sendMode(wakeEnabled: boolean): void;
   end(): void;
   close(): void;
   onServerMessage(handler: (msg: ServerMessage) => void): void;
@@ -27,6 +29,7 @@ export type VoiceSession = {
 type Options = {
   clientId: string;
   handle: string;
+  wakeEnabled?: boolean;
   onOpen?: () => void;
   onClose?: (code: number, reason: string) => void;
   onError?: (err: Event) => void;
@@ -68,6 +71,7 @@ export function openVoiceSession(opts: Options): VoiceSession {
         type: 'hello',
         clientId: opts.clientId,
         handle: opts.handle,
+        wakeEnabled: opts.wakeEnabled ?? true,
       } satisfies ClientMessage),
     );
     flushPending();
@@ -92,6 +96,9 @@ export function openVoiceSession(opts: Options): VoiceSession {
     },
     sendPing(id) {
       safeSend({ type: 'ping', id });
+    },
+    sendMode(wakeEnabled) {
+      safeSend({ type: 'mode', wakeEnabled });
     },
     end() {
       safeSend({ type: 'audio.end' });

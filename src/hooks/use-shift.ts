@@ -33,7 +33,10 @@ type State =
 // Mirror of the server-side wake regex (server/src/wake-machine.ts). Keep in sync.
 const WAKE_RE = /\bheads[\s-]+up\b[\s,.!?:;-]*/i;
 
-function derivePreview(partial: string): LivePreview {
+function derivePreview(partial: string, wakeEnabled: boolean): LivePreview {
+  // Free mode: every committed utterance becomes a note, so the entire rolling
+  // partial is "armed" — show it solid in the preview bubble.
+  if (!wakeEnabled) return { partial, armedText: partial.trim() };
   const match = WAKE_RE.exec(partial);
   if (!match) return { partial, armedText: null };
   const after = partial.slice((match.index ?? 0) + match[0].length).trim();
@@ -110,7 +113,8 @@ async function stopMicStream(handles: WebMicHandles): Promise<void> {
   await handles.ctx.close();
 }
 
-export function useShift() {
+export function useShift(opts?: { wakeEnabled?: boolean }) {
+  const wakeEnabled = opts?.wakeEnabled ?? true;
   const { state: idState } = useIdentity();
   const [state, setState] = useState<State>({ status: 'idle' });
 
@@ -119,6 +123,10 @@ export function useShift() {
   const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pongDeadlineRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pingIdRef = useRef<number>(0);
+  // Mirror of wakeEnabled so the long-lived `onFrame` and message callbacks
+  // see the latest value without re-creating the mic stream.
+  const wakeEnabledRef = useRef<boolean>(wakeEnabled);
+  wakeEnabledRef.current = wakeEnabled;
   // Audio frames captured while no session is open (during reconnect). They
   // are flushed in order as soon as the next session reaches 'ready'.
   const replayBufferRef = useRef<string[]>([]);
@@ -184,6 +192,7 @@ export function useShift() {
     const session = openVoiceSession({
       clientId: idState.identity.uid,
       handle: idState.identity.handle,
+      wakeEnabled: wakeEnabledRef.current,
       onClose: () => {
         if (stoppedRef.current) return;
         // Drop happened. Schedule a reconnect.
@@ -216,7 +225,7 @@ export function useShift() {
         setState({
           status: 'live',
           transcript: msg.text,
-          preview: derivePreview(msg.text),
+          preview: derivePreview(msg.text, wakeEnabledRef.current),
         });
       } else if (msg.type === 'transcript' && msg.kind === 'committed') {
         // The committed transcript will either be saved as a note (and arrive
@@ -285,6 +294,15 @@ export function useShift() {
       });
     }
   }, [connect, idState, stop]);
+
+  // Push wake-mode toggles to the server while a session is open. No-op when
+  // idle/starting/reconnecting — those paths will pick up the latest value
+  // from wakeEnabledRef when they next send `hello`.
+  useEffect(() => {
+    if (sessionRef.current && sessionReadyRef.current) {
+      sessionRef.current.sendMode(wakeEnabled);
+    }
+  }, [wakeEnabled]);
 
   useEffect(() => {
     return () => {

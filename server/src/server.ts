@@ -35,7 +35,24 @@ wss.on('connection', (ws, req) => {
 
   let clientHandle: string | null = null;
   let clientUid: string | null = null;
+  let wakeEnabled = true;
   const wake = new WakeMachine();
+
+  // Lightweight check: at least one non-whitespace, non-punctuation character.
+  // Used in free mode to avoid saving empty / punctuation-only commits.
+  const isMeaningful = (t: string) => /\S/.test(t.replace(/[\s.,!?;:-]+/g, ''));
+
+  const persistNote = (text: string) => {
+    const uid = clientUid;
+    const handle = clientHandle;
+    if (!uid || !handle) {
+      sessionLog.warn('note trigger but client identity missing; skipping');
+      return;
+    }
+    writeNote({ authorUid: uid, authorHandle: handle, text })
+      .then((noteId) => sessionLog.info({ noteId, text }, 'note written'))
+      .catch((err) => sessionLog.error({ err }, 'failed to write note'));
+  };
 
   const apiKey = process.env.ELEVENLABS_API_KEY;
   const upstream = apiKey
@@ -50,25 +67,18 @@ wss.on('connection', (ws, req) => {
               send(ws, { type: 'transcript', kind: 'partial', text: event.text });
               break;
             case 'committed_transcript': {
-              sessionLog.info({ text: event.text }, 'committed transcript');
+              sessionLog.info({ text: event.text, wakeEnabled }, 'committed transcript');
               send(ws, { type: 'transcript', kind: 'committed', text: event.text });
-              const result = wake.feed(event.text);
-              if (result.kind === 'utterance') {
-                const uid = clientUid;
-                const handle = clientHandle;
-                if (!uid || !handle) {
-                  sessionLog.warn('wake triggered but client identity missing; skipping note');
-                  break;
+              if (wakeEnabled) {
+                const result = wake.feed(event.text);
+                if (result.kind === 'utterance') {
+                  persistNote(result.text);
+                } else if (result.kind === 'armed') {
+                  sessionLog.info('wake armed; capturing next utterance');
                 }
-                writeNote({ authorUid: uid, authorHandle: handle, text: result.text })
-                  .then((noteId) => {
-                    sessionLog.info({ noteId, text: result.text }, 'note written');
-                  })
-                  .catch((err) => {
-                    sessionLog.error({ err }, 'failed to write note');
-                  });
-              } else if (result.kind === 'armed') {
-                sessionLog.info('wake armed; capturing next utterance');
+              } else if (isMeaningful(event.text)) {
+                // Free mode: every meaningful VAD commit becomes a note.
+                persistNote(event.text.trim());
               }
               break;
             }
@@ -101,7 +111,18 @@ wss.on('connection', (ws, req) => {
       case 'hello':
         clientUid = msg.clientId;
         clientHandle = msg.handle;
-        sessionLog.info({ clientId: msg.clientId, handle: msg.handle }, 'hello');
+        wakeEnabled = msg.wakeEnabled ?? true;
+        sessionLog.info(
+          { clientId: msg.clientId, handle: msg.handle, wakeEnabled },
+          'hello',
+        );
+        break;
+      case 'mode':
+        wakeEnabled = msg.wakeEnabled;
+        // Reset wake state so the new mode starts clean (e.g. you don't end up
+        // armed forever after toggling off+on).
+        wake.reset();
+        sessionLog.info({ wakeEnabled }, 'mode changed');
         break;
       case 'audio.chunk':
         sessionLog.debug({ seq: msg.seq, bytes: msg.bytes.length }, 'audio chunk');
