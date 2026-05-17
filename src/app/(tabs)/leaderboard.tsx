@@ -17,8 +17,8 @@ export default function LeaderboardScreen() {
         style={[
           styles.container,
           {
-            paddingTop: insets.top + Spacing.three,
-            paddingBottom: insets.bottom + Spacing.three,
+            paddingTop: insets.top + Spacing.two,
+            paddingBottom: insets.bottom + Spacing.two,
           },
         ]}>
         <View style={styles.header}>
@@ -72,28 +72,29 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    gap: Spacing.two,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
   },
-  list: { gap: Spacing.two, paddingVertical: Spacing.two },
+  list: { gap: Spacing.one, paddingVertical: Spacing.one },
   emptyState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: Spacing.six,
+    paddingVertical: Spacing.five,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.two,
   },
-  rank: { minWidth: 32 },
+  rank: { minWidth: 28 },
   handle: { flex: 1 },
 });

@@ -1,13 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Platform } from 'react-native';
 
 import { useTheme } from '@/hooks/use-theme';
 
 export default function TabsLayout() {
   const theme = useTheme();
-  const isWeb = Platform.OS === 'web';
 
   return (
     <Tabs
@@ -41,13 +39,9 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="debug"
         options={{
-          title: 'Debug',
-          // Web-only: hide on iOS/Android by setting href: null. Route still
-          // exists (the file is there) but isn't surfaced in the bar.
-          href: isWeb ? '/debug' : null,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="construct-outline" size={size} color={color} />
-          ),
+          // Hidden from the tab bar in demo mode. Route still exists at /debug
+          // for direct URL access if needed.
+          href: null,
         }}
       />
     </Tabs>

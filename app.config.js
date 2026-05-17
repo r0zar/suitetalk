@@ -53,7 +53,25 @@ module.exports = () => ({
       [
         'expo-build-properties',
         {
-          ios: { useFrameworks: 'static' },
+          ios: {
+            useFrameworks: 'static',
+            // Work around RNFirebase v24 + Expo SDK 54 build break: when
+            // useFrameworks: static is set, RNFB iOS targets need
+            // non-modular React headers allowed AND a few Firebase pods need
+            // explicit modular_headers configuration to avoid duplicate
+            // interface errors. See
+            // https://github.com/invertase/react-native-firebase/issues/8657
+            extraPods: [
+              { name: 'FirebaseFirestoreInternal', modular_headers: true },
+              { name: 'FirebaseCore', modular_headers: true },
+              { name: 'FirebaseCoreExtension', modular_headers: true },
+              { name: 'FirebaseAppCheckInterop', modular_headers: true },
+              { name: 'FirebaseAuthInterop', modular_headers: true },
+              { name: 'FirebaseCoreInternal', modular_headers: true },
+              { name: 'GoogleUtilities', modular_headers: true },
+              { name: 'RecaptchaInterop', modular_headers: true },
+            ],
+          },
         },
       ],
     ],
