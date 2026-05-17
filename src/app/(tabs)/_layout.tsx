@@ -39,9 +39,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="debug"
         options={{
-          // Hidden from the tab bar in demo mode. Route still exists at /debug
-          // for direct URL access if needed.
-          href: null,
+          title: 'Debug',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="bug-outline" size={size} color={color} />
+          ),
         }}
       />
     </Tabs>
