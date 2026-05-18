@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet } from 'react-native';
 
 import { ThemedView } from '@/components/themed-view';
+import { WebTooltip } from '@/components/web-tooltip';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -28,20 +29,19 @@ export function WakeToggle({ wakeEnabled, onPress }: Props) {
     : 'Wake phrase off — every utterance becomes a note. Tap to enable.';
 
   return (
-    <Pressable
-      onPress={onPress}
-      hitSlop={8}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      // `title` is passed through by react-native-web to the underlying DOM
-      // element to give a browser hover tooltip. RN types don't include it.
-      {...({ title: label } as object)}>
-      <ThemedView
-        type={wakeEnabled ? 'backgroundSelected' : 'backgroundElement'}
-        style={styles.button}>
-        <Ionicons name={icon} size={16} color={tint} />
-      </ThemedView>
-    </Pressable>
+    <WebTooltip label={label}>
+      <Pressable
+        onPress={onPress}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={label}>
+        <ThemedView
+          type={wakeEnabled ? 'backgroundSelected' : 'backgroundElement'}
+          style={styles.button}>
+          <Ionicons name={icon} size={16} color={tint} />
+        </ThemedView>
+      </Pressable>
+    </WebTooltip>
   );
 }
 
